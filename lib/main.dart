@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
+import 'controllers/auth_controller.dart';
+import 'controllers/dashboard_controller.dart';
+import 'controllers/project_controller.dart';
 import 'screens/landing_screen.dart';
-import 'screens/role_selection_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/signup_cv_submission_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'models/user_role.dart';
-import 'models/sector.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,56 +20,30 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AppState(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(create: (_) => DashboardController()),
+        ChangeNotifierProvider(create: (_) => ProjectController()),
+      ],
       child: MaterialApp(
         title: "Prev'Hub",
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('fr', 'FR'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('fr', 'FR'),
         home: const AppNavigator(),
       ),
     );
   }
-}
-
-class AppState extends ChangeNotifier {
-  UserRole? _userRole;
-  Sector? _userSector;
-  AppScreen _currentScreen = AppScreen.landing;
-
-  UserRole? get userRole => _userRole;
-  Sector? get userSector => _userSector;
-  AppScreen get currentScreen => _currentScreen;
-
-  void setUserRole(UserRole role, Sector? sector) {
-    _userRole = role;
-    _userSector = sector;
-    _currentScreen = AppScreen.dashboard;
-    notifyListeners();
-  }
-
-  void logout() {
-    _userRole = null;
-    _userSector = null;
-    _currentScreen = AppScreen.landing;
-    notifyListeners();
-  }
-
-  void navigateToRoleSelection() {
-    _currentScreen = AppScreen.roleSelection;
-    notifyListeners();
-  }
-
-  void navigateToLanding() {
-    _currentScreen = AppScreen.landing;
-    notifyListeners();
-  }
-}
-
-enum AppScreen {
-  landing,
-  roleSelection,
-  dashboard,
 }
 
 class AppNavigator extends StatelessWidget {
@@ -73,23 +51,37 @@ class AppNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, appState, _) {
-        switch (appState.currentScreen) {
+    return Consumer<AuthController>(
+      builder: (context, authController, _) {
+        switch (authController.currentScreen) {
           case AppScreen.landing:
             return LandingScreen(
-              onStart: () => appState.navigateToRoleSelection(),
+              onStart: () => authController.navigateToSignupCvSubmission(),
+              onLogin: () => authController.navigateToLogin(),
             );
-          case AppScreen.roleSelection:
-            return RoleSelectionScreen(
-              onBack: () => appState.navigateToLanding(),
-              onComplete: (role, sector) => appState.setUserRole(role, sector),
+          case AppScreen.login:
+            return LoginScreen(
+              onLogin: () {
+                // Rediriger directement vers le dashboard
+                authController.setUserRole(UserRole.provider, null);
+              },
+              onBack: () => authController.navigateToLanding(),
+              onSignUp: () => authController.navigateToSignupCvSubmission(),
+            );
+          case AppScreen.signupCvSubmission:
+            return SignupCvSubmissionScreen(
+              onBack: () => authController.navigateToLogin(),
             );
           case AppScreen.dashboard:
             return DashboardScreen(
-              userRole: appState.userRole!,
-              userSector: appState.userSector,
-              onLogout: () => appState.logout(),
+              userRole: authController.userRole!,
+              userSector: authController.userSector,
+              onLogout: () => authController.logout(),
+            );
+          default:
+            return LandingScreen(
+              onStart: () => authController.navigateToSignupCvSubmission(),
+              onLogin: () => authController.navigateToLogin(),
             );
         }
       },

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/user_role.dart';
 import '../models/sector.dart';
 import '../models/project.dart';
+import '../controllers/dashboard_controller.dart';
+import '../controllers/project_controller.dart';
 import '../widgets/app_modal.dart';
 import '../widgets/compliance_score_widget.dart';
 import '../widgets/app_button.dart';
 import '../constants/app_constants.dart';
-import 'dashboard_views/client_dashboard_view.dart';
-import 'dashboard_views/provider_dashboard_view.dart';
-import 'dashboard_views/settings_view.dart';
-import 'dashboard_views/projects_view.dart';
-import 'dashboard_views/team_view.dart';
+import 'dashboard_views/informations_view.dart';
+import 'dashboard_views/mission_view.dart';
+import 'dashboard_views/audit_terrain_view.dart';
+import 'dashboard_views/livrables_view.dart';
 
 class DashboardScreen extends StatefulWidget {
   final UserRole userRole;
@@ -29,73 +31,70 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _activeTab = 0;
-  Project? _selectedProject;
-  bool _isNotificationsOpen = false;
+  @override
+  void initState() {
+    super.initState();
+    // Charger les projets au démarrage
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final projectController =
+          Provider.of<ProjectController>(context, listen: false);
+      projectController.loadProjects(widget.userRole, widget.userSector);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _activeTab == 0 && widget.userRole == UserRole.client
-          ? FloatingActionButton(
-              onPressed: () {},
-              backgroundColor: const Color(0xFF1A1A1A),
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      // Modals
-      body: Stack(
-        children: [
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: IndexedStack(
-                    index: _activeTab,
-                    children: [
-                      _buildHomeTab(),
-                      ProjectsView(
-                        userRole: widget.userRole,
-                        userSector: widget.userSector,
-                        onProjectTap: (project) {
-                          setState(() {
-                            _selectedProject = project;
-                          });
-                        },
+    return Consumer2<DashboardController, ProjectController>(
+      builder: (context, dashboardController, projectController, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F5F5),
+          bottomNavigationBar: _buildBottomNav(dashboardController),
+          floatingActionButton: null,
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          body: Stack(
+            children: [
+              SafeArea(
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    Expanded(
+                      child: IndexedStack(
+                        index: dashboardController.activeTab,
+                        children: [
+                          const MissionView(),
+                          const AuditTerrainView(),
+                          const LivrablesView(),
+                          InformationsView(
+                            userRole: widget.userRole,
+                            onLogout: widget.onLogout,
+                          ),
+                        ],
                       ),
-                      TeamView(),
-                      SettingsView(
-                        userRole: widget.userRole,
-                        onLogout: widget.onLogout,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              // Project Details Modal
+              if (projectController.selectedProject != null)
+                AppModal(
+                  isOpen: projectController.selectedProject != null,
+                  title: projectController.selectedProject!.name,
+                  onClose: () => projectController.clearSelectedProject(),
+                  child: _buildProjectDetailsModal(
+                      projectController.selectedProject!),
+                ),
+              // Notifications Modal
+              if (dashboardController.isNotificationsOpen)
+                AppModal(
+                  isOpen: dashboardController.isNotificationsOpen,
+                  title: 'Notifications',
+                  onClose: () => dashboardController.closeNotifications(),
+                  child: _buildNotificationsModal(),
+                ),
+            ],
           ),
-          // Project Details Modal
-          if (_selectedProject != null)
-            AppModal(
-              isOpen: _selectedProject != null,
-              title: _selectedProject!.name,
-              onClose: () => setState(() => _selectedProject = null),
-              child: _buildProjectDetailsModal(_selectedProject!),
-            ),
-          // Notifications Modal
-          if (_isNotificationsOpen)
-            AppModal(
-              isOpen: _isNotificationsOpen,
-              title: 'Notifications',
-              onClose: () => setState(() => _isNotificationsOpen = false),
-              child: _buildNotificationsModal(),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -114,9 +113,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => setState(() => _activeTab = 3),
-            child: Row(
+          Consumer<DashboardController>(
+            builder: (context, dashboardController, _) {
+              return GestureDetector(
+                onTap: () => dashboardController.setActiveTab(3),
+                child: Row(
               children: [
                 Stack(
                   children: [
@@ -172,11 +173,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
+              );
+            },
           ),
           const Spacer(),
-          GestureDetector(
-            onTap: () => setState(() => _isNotificationsOpen = true),
-            child: Stack(
+          Consumer<DashboardController>(
+            builder: (context, dashboardController, _) {
+              return GestureDetector(
+                onTap: () => dashboardController.openNotifications(),
+                child: Stack(
               children: [
                 Container(
                   width: 40,
@@ -209,35 +214,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHomeTab() {
-    if (widget.userRole == UserRole.client || widget.userRole == UserRole.manager) {
-      return ClientDashboardView(
-        userRole: widget.userRole,
-        userSector: widget.userSector,
-        onProjectTap: (project) {
-          setState(() {
-            _selectedProject = project;
-          });
-        },
-      );
-    } else {
-      return ProviderDashboardView(
-        onProjectTap: (project) {
-          setState(() {
-            _selectedProject = project;
-          });
-        },
-      );
-    }
-  }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(DashboardController dashboardController) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.95),
@@ -250,26 +236,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       child: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, 'Accueil', 0),
-              _buildNavItem(Icons.folder_open, 'Dossiers', 1),
-              _buildNavItem(Icons.people, 'Équipe', 2),
-              _buildNavItem(Icons.settings, 'Compte', 3),
-            ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(dashboardController, Icons.assignment, 'Mission', 0),
+                _buildNavItem(dashboardController, Icons.construction, 'Audit terrain', 1),
+                _buildNavItem(dashboardController, Icons.folder, 'Livrables', 2),
+                _buildNavItem(dashboardController, Icons.person, 'Profile', 3),
+              ],
+            ),
           ),
-        ),
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isActive = _activeTab == index;
+  Widget _buildNavItem(DashboardController dashboardController, IconData icon, String label, int index) {
+    final isActive = dashboardController.activeTab == index;
     return GestureDetector(
-      onTap: () => setState(() => _activeTab = index),
+      onTap: () => dashboardController.setActiveTab(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -278,13 +264,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: isActive
                 ? const Color(0xFFFF4D3D)
                 : const Color(0xFF999999),
-            size: 24,
+            size: 22,
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.w500,
               color: isActive
                   ? const Color(0xFFFF4D3D)
@@ -423,10 +409,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        AppButton(
-          text: 'Fermer',
-          onPressed: () => setState(() => _selectedProject = null),
-          fullWidth: true,
+        Consumer<ProjectController>(
+          builder: (context, projectController, _) {
+            return AppButton(
+              text: 'Fermer',
+              onPressed: () => projectController.clearSelectedProject(),
+              fullWidth: true,
+            );
+          },
         ),
       ],
     );

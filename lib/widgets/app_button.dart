@@ -33,7 +33,7 @@ class AppButton extends StatelessWidget {
 
     switch (variant) {
       case ButtonVariant.primary:
-        backgroundColor = const Color(0xFFFF4D3D);
+        backgroundColor = const Color(0xFFE63900);
         foregroundColor = Colors.white;
         borderColor = null;
         break;
@@ -99,12 +99,16 @@ class AppButton extends StatelessWidget {
             icon!,
             const SizedBox(width: 8),
           ],
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              color: foregroundColor,
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
+                color: foregroundColor,
+              ),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ),
         ],
