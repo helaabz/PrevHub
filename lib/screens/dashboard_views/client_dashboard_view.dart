@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/user_role.dart';
 import '../../models/sector.dart';
 import '../../models/project.dart' show Project, ProjectStatus;
+import '../../controllers/project_controller.dart';
 import '../../widgets/compliance_score_widget.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/modals/scanner_modal.dart';
 import '../../widgets/modals/registry_modal.dart';
 import '../../widgets/modals/marketplace_modal.dart';
 import '../../widgets/modals/urgency_modal.dart';
-import '../../constants/app_constants.dart';
 
 class ClientDashboardView extends StatefulWidget {
   final UserRole userRole;
@@ -32,14 +33,9 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
   bool _marketplaceOpen = false;
   bool _urgencyOpen = false;
 
-  List<Project> get _establishments {
-    if (widget.userRole == UserRole.client) {
-      final mainEst = widget.userSector == Sector.restaurant
-          ? AppConstants.mockEstablishments[0]
-          : AppConstants.mockEstablishments[1];
-      return [mainEst];
-    }
-    return AppConstants.mockEstablishments;
+  Future<void> _refreshData() async {
+    // TODO: Refresh dashboard data from backend
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   void _handleQuickAction(String action) {
@@ -61,13 +57,17 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
 
   @override
   Widget build(BuildContext context) {
-    final establishments = _establishments;
+    final projectController = Provider.of<ProjectController>(context);
+    final establishments = projectController.projects;
     final mainEstablishment = establishments.isNotEmpty ? establishments[0] : null;
 
     return Stack(
       children: [
-        SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+        RefreshIndicator(
+          onRefresh: _refreshData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -215,6 +215,7 @@ class _ClientDashboardViewState extends State<ClientDashboardView> {
             () {},
           ),
         ],
+      ),
       ),
     ),
         // Modals

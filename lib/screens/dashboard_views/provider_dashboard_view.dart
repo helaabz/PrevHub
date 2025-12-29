@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/project.dart';
+import '../../controllers/project_controller.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/modals/proposal_modal.dart';
@@ -21,6 +23,11 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
   bool _proposalOpen = false;
   int? _selectedLeadId;
 
+  Future<void> _refreshData() async {
+    // TODO: Refresh dashboard data from backend
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
   void _handleLeadResponse(int leadId) {
     setState(() {
       _selectedLeadId = leadId;
@@ -30,6 +37,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
 
   @override
   Widget build(BuildContext context) {
+    final projectController = Provider.of<ProjectController>(context);
     final selectedLead = _selectedLeadId != null
         ? AppConstants.mockProviderLeads.firstWhere(
             (lead) => lead.id == _selectedLeadId,
@@ -38,8 +46,11 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
 
     return Stack(
       children: [
-        SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+        RefreshIndicator(
+          onRefresh: _refreshData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -137,7 +148,11 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                   'Maintenance Extincteurs (x8)',
                   'Lyon 2ème',
                   true,
-                  () => widget.onProjectTap(AppConstants.mockEstablishments[0]),
+                  () {
+                    if (projectController.projects.isNotEmpty) {
+                      widget.onProjectTap(projectController.projects[0]);
+                    }
+                  },
                 ),
                 const Divider(height: 32),
                 _buildScheduleItem(
@@ -147,7 +162,11 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                   'Audit Sécurité Annuel',
                   'Part-Dieu',
                   false,
-                  () => widget.onProjectTap(AppConstants.mockEstablishments[1]),
+                  () {
+                    if (projectController.projects.length > 1) {
+                      widget.onProjectTap(projectController.projects[1]);
+                    }
+                  },
                 ),
               ],
             ),
